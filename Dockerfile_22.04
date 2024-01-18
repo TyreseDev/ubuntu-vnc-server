@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4-terminal \
     xfonts-base \
     xubuntu-icon-theme \
+    x11-xserver-utils \
+    libxkbcommon-x11-0 \
+    at-spi2-core \
     ibus \
     dbus \
     dbus-user-session \
@@ -26,7 +29,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tightvncserver \
     openssh-server \
     net-tools \
+    git \
+    ca-certificates \
     sudo
+RUN sudo update-ca-certificates
 RUN apt autoremove --purge -y && \
     apt autoclean -y && \
     apt clean -y && \
