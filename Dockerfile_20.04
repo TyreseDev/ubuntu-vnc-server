@@ -1,0 +1,79 @@
+# Use Ubuntu 20.04 as the base image
+FROM ubuntu:20.04
+LABEL org.opencontainers.image.authors="TyreseJin (tyresejin3915@gmail.com)"
+
+# Set default arguments
+ARG VNC_USER=ubuntu
+ARG VNC_PASSWORD=123456
+ARG VNC_SCREEN_GEOMETRY=1366x768
+ARG VNC_COL_DEPTH=24
+ARG ROOT_PASSWORD=root
+
+# Suppress interactive menus during package installation
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Update the system and install required packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xfce4 \
+    xfce4-goodies \
+    xfce4-terminal \
+    xfonts-base \
+    xubuntu-icon-theme \
+    ibus \
+    dbus \
+    dbus-user-session \
+    dbus-x11 \
+    tightvncserver \
+    openssh-server \
+    net-tools \
+    sudo
+RUN apt autoremove --purge -y && \
+    apt autoclean -y && \
+    apt clean -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set the root password
+RUN echo "root:${ROOT_PASSWORD}" | chpasswd
+
+# Set up VNC user environment
+RUN useradd -m -s /bin/bash ${VNC_USER} && \
+    echo "${VNC_USER}:${VNC_PASSWORD}" | chpasswd && \
+    adduser ${VNC_USER} sudo && \
+    echo "${VNC_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${VNC_USER} && \
+    chmod 0440 /etc/sudoers.d/${VNC_USER} && \
+    mkdir -p /home/${VNC_USER}/.vnc
+
+# Set the VNC password
+RUN echo ${VNC_PASSWORD} | vncpasswd -f > /home/${VNC_USER}/.vnc/passwd && \
+    chmod 600 /home/${VNC_USER}/.vnc/passwd && \
+    chown -R ${VNC_USER}:${VNC_USER} /home/${VNC_USER}
+
+# Configure OpenSSH server
+RUN mkdir /var/run/sshd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N '' -y -q && \
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N '' -y -q && \
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' -y -q
+
+# Set environment variables
+ENV USER=${VNC_USER} \
+    HOME=/home/${VNC_USER} \
+    VNC_SCREEN_GEOMETRY=${VNC_SCREEN_GEOMETRY} \
+    VNC_COL_DEPTH=${VNC_COL_DEPTH} \
+    DISPLAY=:1
+
+# Expose VNC port and default SSH port
+EXPOSE 5901
+EXPOSE 22
+
+# Copy the entrypoint script into the container
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Change to created user
+USER ${VNC_USER}
+WORKDIR ${HOME}
+
+# Set entrypoint
+ENTRYPOINT ["sudo", "-E", "/entrypoint.sh"]

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+# Ensure proper permissions
+chmod go-rwx "$HOME/.Xauthority"
+
+# Start the D-Bus session daemon
+if which dbus-launch >/dev/null && test -z "$DBUS_SESSION_BUS_ADDRESS"; then
+   eval "$(dbus-launch --sh-syntax --exit-with-session)"
+fi
+
+# Load X resources (if any)
+if [ -r "$HOME/.Xresources" ]; then
+    xrdb "$HOME/.Xresources"
+fi
+
+# Set the icon theme (adjust if you are using a different icon theme)
+xfconf-query -c xsettings -p /Net/IconThemeName -s "xubuntu-icon-theme"
+
+# Start XFCE4
+startxfce4 &
